@@ -1,9 +1,9 @@
 import Pagination from "@/components/pagination";
 import Sidebar from "@/components/sidebar";
-import { deleteProduct } from "@/lib/actions/products";
-import { getCurrentUser } from "@/lib/auth";
+import { getOrgContext } from "@/lib/org";
 import { prisma } from "@/lib/prisma";
 import { getCached } from "@/lib/redis";
+import InventoryTable from "@/components/inventory-table";
 
 const cardStyle = {
   background: "rgba(13,13,26,0.8)",
@@ -16,8 +16,8 @@ export default async function InventoryPage({
 }: {
   searchParams: Promise<{ q?: string; page?: string }>;
 }) {
-  const user = await getCurrentUser();
-  const userId = user.id;
+  const ctx = await getOrgContext();
+  const { organizationId, role, orgName = "" } = ctx;
 
   const params = await searchParams;
   const q = (params.q ?? "").trim();
@@ -25,10 +25,10 @@ export default async function InventoryPage({
   const pageSize = 10;
 
   const { totalCount, items } = await getCached(
-    `inventory:${userId}:${q}:${page}`,
+    `org:${organizationId}:inventory:${q}:${page}`,
     async () => {
       const where = {
-        userId,
+        organizationId,
         ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
       };
       const [totalCount, items] = await Promise.all([
@@ -42,14 +42,14 @@ export default async function InventoryPage({
       ]);
       return { totalCount, items };
     },
-    30 // 30 секунд cache
+    30
   );
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   return (
     <div className="min-h-screen" style={{ background: "#0a0a0f" }}>
-      <Sidebar currentPath="/inventory" />
+      <Sidebar currentPath="/inventory" orgName={orgName} role={role} />
       <main className="ml-64 p-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold" style={{ color: "#e2e8f0" }}>Inventory</h1>
@@ -78,49 +78,14 @@ export default async function InventoryPage({
           </div>
 
           <div style={{ ...cardStyle, overflow: "hidden" }}>
-            <table className="w-full">
-              <thead>
-                <tr style={{ borderBottom: "1px solid rgba(56,189,248,0.1)" }}>
-                  {["Name", "SKU", "Price", "Quantity", "Low Stock At", "Actions"].map((h) => (
-                    <th key={h} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest"
-                      style={{ color: "rgba(56,189,248,0.6)" }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((product, key) => (
-                  <tr key={key} style={{ borderBottom: "1px solid rgba(56,189,248,0.06)" }}
-                    className="transition-colors hover:bg-[rgba(56,189,248,0.03)]">
-                    <td className="px-6 py-4 text-sm font-medium" style={{ color: "#e2e8f0" }}>{product.name}</td>
-                    <td className="px-6 py-4 text-sm" style={{ color: "rgba(226,232,240,0.5)" }}>{product.sku || "—"}</td>
-                    <td className="px-6 py-4 text-sm font-medium" style={{ color: "#38bdf8" }}>${Number(product.price).toFixed(2)}</td>
-                    <td className="px-6 py-4 text-sm" style={{ color: "#e2e8f0" }}>{product.quantity}</td>
-                    <td className="px-6 py-4 text-sm" style={{ color: "rgba(226,232,240,0.5)" }}>{product.lowStockAt || "—"}</td>
-                    <td className="px-6 py-4 text-sm">
-                      <form action={async (formData: FormData) => {
-                        "use server";
-                        await deleteProduct(formData);
-                      }}>
-                        <input type="hidden" name="id" value={product.id} />
-                        <button className="text-xs font-semibold px-3 py-1 rounded transition-opacity hover:opacity-80"
-                          style={{ color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.05)" }}>
-                          Delete
-                        </button>
-                      </form>
-                    </td>
-                  </tr>
-                ))}
-                {items.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-sm" style={{ color: "rgba(226,232,240,0.3)" }}>
-                      No products found
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+            <InventoryTable items={items.map(p => ({
+              id: p.id,
+              name: p.name,
+              sku: p.sku,
+              price: Number(p.price),
+              quantity: p.quantity,
+              lowStockAt: p.lowStockAt,
+            }))} />
           </div>
 
           {totalPages > 1 && (

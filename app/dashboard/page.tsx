@@ -1,6 +1,6 @@
 import ProductsChart from "@/components/products-chart";
 import Sidebar from "@/components/sidebar";
-import { getCurrentUser } from "@/lib/auth";
+import { getOrgContext } from "@/lib/org";
 import { prisma } from "@/lib/prisma";
 import { getCached } from "@/lib/redis";
 import { TrendingUp } from "lucide-react";
@@ -11,49 +11,47 @@ const cardStyle = {
   borderRadius: "12px",
 };
 
-async function getDashboardData(userId: string) {
+async function getDashboardData(organizationId: string, orgName: string) {
   return getCached(
-    `dashboard:${userId}`,
+    `org:${organizationId}:dashboard`,
     async () => {
       const twelveWeeksAgo = new Date();
       twelveWeeksAgo.setDate(twelveWeeksAgo.getDate() - 84);
 
       const [totalProducts, lowStock, allProducts, recent, weeklyRaw] =
         await Promise.all([
-          prisma.product.count({ where: { userId } }),
+          prisma.product.count({ where: { organizationId } }),
           prisma.product.count({
-            where: { userId, lowStockAt: { not: null }, quantity: { lte: 5 } },
+            where: { organizationId, lowStockAt: { not: null }, quantity: { lte: 5 } },
           }),
-          // Only fetch fields needed for calculations
           prisma.product.findMany({
-            where: { userId },
+            where: { organizationId },
             select: { price: true, quantity: true, lowStockAt: true },
           }),
           prisma.product.findMany({
-            where: { userId },
+            where: { organizationId },
             orderBy: { createdAt: "desc" },
             take: 5,
             select: { id: true, name: true, quantity: true, lowStockAt: true },
           }),
-          // Only fetch last 12 weeks for chart
           prisma.product.findMany({
-            where: { userId, createdAt: { gte: twelveWeeksAgo } },
+            where: { organizationId, createdAt: { gte: twelveWeeksAgo } },
             select: { createdAt: true },
           }),
         ]);
 
-      return { totalProducts, lowStock, allProducts, recent, weeklyRaw };
+      return { totalProducts, lowStock, allProducts, recent, weeklyRaw, orgName };
     },
     60
   );
 }
 
 export default async function DashboardPage() {
-  const user = await getCurrentUser();
-  const userId = user.id;
+  const ctx = await getOrgContext();
+  const { organizationId, role, orgName = "" } = ctx;
 
   const { totalProducts, lowStock, allProducts, recent, weeklyRaw } =
-    await getDashboardData(userId);
+    await getDashboardData(organizationId, orgName);
 
   const totalValue = allProducts.reduce(
     (sum, p) => sum + Number(p.price) * Number(p.quantity),
@@ -87,7 +85,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen" style={{ background: "#0a0a0f" }}>
-      <Sidebar currentPath="/dashboard" />
+      <Sidebar currentPath="/dashboard" orgName={orgName} role={role} />
       <main className="ml-64 p-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold" style={{ color: "#e2e8f0" }}>Dashboard</h1>

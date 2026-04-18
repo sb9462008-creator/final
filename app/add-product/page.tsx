@@ -1,6 +1,6 @@
 import Sidebar from "@/components/sidebar";
+import { getOrgContext } from "@/lib/org";
 import { createProduct } from "@/lib/actions/products";
-import { getCurrentUser } from "@/lib/auth";
 import Link from "next/link";
 
 const inputStyle = {
@@ -17,10 +17,10 @@ const labelStyle = {
 };
 
 export default async function AddProductPage() {
-  const user = await getCurrentUser();
+  const ctx = await getOrgContext();
   return (
     <div className="min-h-screen" style={{ background: "#0a0a0f" }}>
-      <Sidebar currentPath="/add-product" />
+      <Sidebar currentPath="/add-product" orgName={ctx.orgName} role={ctx.role} />
       <main className="ml-64 p-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold" style={{ color: "#e2e8f0" }}>Add Product</h1>

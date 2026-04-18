@@ -1,13 +1,12 @@
 import Sidebar from "@/components/sidebar";
-import { getCurrentUser } from "@/lib/auth";
+import { getOrgContext } from "@/lib/org";
 import { AccountSettings } from "@stackframe/stack";
 
 export default async function SettingsPage() {
-  const user = await getCurrentUser();
-
+  const ctx = await getOrgContext();
   return (
     <div className="min-h-screen" style={{ background: "#0a0a0f" }}>
-      <Sidebar currentPath="/settings" />
+      <Sidebar currentPath="/settings" orgName={ctx.orgName} role={ctx.role} />
       <main className="ml-64 p-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold" style={{ color: "#e2e8f0" }}>Settings</h1>
