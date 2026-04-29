@@ -8,13 +8,21 @@ import type { Plan } from "@/lib/billing";
 // Try to get org context — unauthenticated visitors will throw
 async function getAuthContext(): Promise<{ plan: Plan; role: string } | null> {
   try {
-    const { getOrgContext } = await import("@/lib/org");
+    const { stackServerApp } = await import("@/stack/server");
+    const user = await stackServerApp.getUser();
+    if (!user) return null;
+
     const { prisma } = await import("@/lib/prisma");
-    const ctx = await getOrgContext();
-    const org = await prisma.organization.findUnique({
-      where: { id: ctx.organizationId },
+    const member = await prisma.member.findFirst({
+      where: { userId: user.id },
+      include: { organization: { select: { id: true, plan: true } } },
     });
-    return { plan: ((org as Record<string, unknown>)?.plan ?? "STARTER") as Plan, role: ctx.role };
+    if (!member?.organization) return null;
+
+    return {
+      plan: (member.organization.plan ?? "STARTER") as Plan,
+      role: member.role,
+    };
   } catch {
     return null;
   }
