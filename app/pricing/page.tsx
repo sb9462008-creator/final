@@ -2,6 +2,9 @@ import Link from "next/link";
 import Logo from "@/components/logo";
 import CssBg from "@/components/css-bg";
 import { Check } from "lucide-react";
+import { CheckoutButton } from "@/components/pricing-buttons";
+
+const stripeEnabled = process.env.STRIPE_ENABLED === "true";
 
 const plans = [
   {
@@ -29,6 +32,7 @@ const plans = [
     border: "#C8F000",
     accent: "#C8F000",
     badge: "Most Popular",
+    plan: "PRO" as const,
     features: [
       "Unlimited team members",
       "Unlimited products",
@@ -48,6 +52,7 @@ const plans = [
     color: "rgba(0,112,246,0.04)",
     border: "rgba(0,112,246,0.3)",
     accent: "#0070f6",
+    plan: "ENTERPRISE" as const,
     features: [
       "Everything in Pro",
       "Prometheus + Grafana monitoring",
@@ -116,15 +121,25 @@ export default function PricingPage() {
                 {plan.period && <span style={{ fontSize: 13, color: "rgba(255,255,255,0.3)" }}>{plan.period}</span>}
               </div>
               <div style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginBottom: 24, lineHeight: 1.5 }}>{plan.desc}</div>
-              <Link href="/sign-in" style={{
-                display: "block", textAlign: "center", padding: "10px 0", borderRadius: 7,
-                background: plan.accent === "#C8F000" ? "#C8F000" : "rgba(255,255,255,0.06)",
-                border: plan.accent === "#C8F000" ? "none" : "1px solid rgba(255,255,255,0.1)",
-                color: plan.accent === "#C8F000" ? "#000" : "#fff",
-                fontSize: 12, fontWeight: 700, textDecoration: "none", marginBottom: 24,
-              }}>
-                {plan.price === "Free" ? "Start free" : plan.price === "Custom" ? "Contact us" : "Get started"}
-              </Link>
+              <div style={{ marginBottom: 24 }}>
+                {plan.name === "Starter" ? (
+                  <Link href="/sign-in" style={{
+                    display: "block", textAlign: "center", padding: "10px 0", borderRadius: 7,
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    color: "#fff",
+                    fontSize: 12, fontWeight: 700, textDecoration: "none",
+                  }}>
+                    Start free
+                  </Link>
+                ) : (
+                  <CheckoutButton
+                    plan={plan.plan!}
+                    accent={plan.accent}
+                    stripeEnabled={stripeEnabled}
+                  />
+                )}
+              </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {plan.features.map((f) => (
                   <div key={f} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
