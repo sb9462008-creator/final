@@ -181,6 +181,14 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
+  // /onboarding — нэвтрээгүй хэрэглэгчийг sign-in руу явуулна, нэвтэрсэн бол дамжуулна
+  if (pathname.startsWith("/onboarding")) {
+    if (!refreshToken && !accessCookie) {
+      return NextResponse.redirect(new URL("/sign-in", request.url));
+    }
+    return NextResponse.next();
+  }
+
   const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
   if (!isProtected) return NextResponse.next();
 
@@ -220,6 +228,8 @@ export const config = {
     "/",
     "/sign-in",
     "/sign-up",
+    "/onboarding",
+    "/onboarding/:path*",
     "/dashboard/:path*",
     "/inventory/:path*",
     "/add-product/:path*",
