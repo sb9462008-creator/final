@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useUser } from "@stackframe/stack";
 import { Loader2 } from "lucide-react";
 
 export function CheckoutButton({
@@ -15,6 +16,7 @@ export function CheckoutButton({
 }) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const user = useUser();
 
   // Stripe not configured — show contact link
   if (!stripeEnabled) {
@@ -36,6 +38,12 @@ export function CheckoutButton({
   }
 
   async function handleClick() {
+    // Not signed in — redirect to sign-in with return path to pricing
+    if (!user) {
+      router.push(`/sign-in?after_auth_return_to=/pricing`);
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch("/api/stripe/checkout", {
@@ -43,7 +51,21 @@ export function CheckoutButton({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ plan }),
       });
+
+      // Handle redirect responses (e.g. session expired → sign-in)
+      if (res.redirected) {
+        router.push(res.url);
+        return;
+      }
+
       const data = await res.json();
+
+      // Server says not authenticated — go to sign-in
+      if (res.status === 401 && data.redirect) {
+        router.push(`${data.redirect}?after_auth_return_to=/pricing`);
+        return;
+      }
+
       if (data.url) {
         router.push(data.url);
       } else {

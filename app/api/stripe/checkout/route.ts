@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOrgContext } from "@/lib/org";
+import { stackServerApp } from "@/stack/server";
 import { prisma } from "@/lib/prisma";
 import { getStripe, getPriceId } from "@/lib/billing";
 import { rateLimit } from "@/lib/rate-limit";
@@ -23,9 +23,23 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const ctx = await getOrgContext();
+    // Use stackServerApp directly — getOrgContext() throws a redirect in API routes
+    const user = await stackServerApp.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Not authenticated.", redirect: "/sign-in" }, { status: 401 });
+    }
 
-    if (ctx.role !== "MANAGER" && ctx.role !== "SUPER_ADMIN") {
+    // Get member + org in one query
+    const member = await prisma.member.findFirst({
+      where: { userId: user.id },
+      include: { organization: { select: { id: true, name: true, stripeCustomerId: true } } },
+    });
+
+    if (!member || !member.organization) {
+      return NextResponse.json({ error: "No organization found.", redirect: "/onboarding" }, { status: 403 });
+    }
+
+    if (member.role !== "MANAGER" && member.role !== "SUPER_ADMIN") {
       return NextResponse.json(
         { error: "Only Managers can manage billing." },
         { status: 403 }
@@ -40,25 +54,20 @@ export async function POST(request: NextRequest) {
 
     const { plan } = parsed.data;
     const stripe = getStripe();
+    const org = member.organization;
 
-    // Get or create Stripe customer
-    const org = await prisma.organization.findUnique({
-      where: { id: ctx.organizationId },
-      select: { stripeCustomerId: true, name: true },
-    });
-
-    let customerId = org?.stripeCustomerId ?? null;
+    let customerId = org.stripeCustomerId ?? null;
 
     if (!customerId) {
       const customer = await stripe.customers.create({
-        name: org?.name ?? ctx.organizationId,
-        email: ctx.userEmail ?? undefined,
-        metadata: { organizationId: ctx.organizationId },
+        name: org.name ?? org.id,
+        email: user.primaryEmail ?? undefined,
+        metadata: { organizationId: org.id },
       });
       customerId = customer.id;
 
       await prisma.organization.update({
-        where: { id: ctx.organizationId },
+        where: { id: org.id },
         data: { stripeCustomerId: customerId },
       });
     }
@@ -69,7 +78,7 @@ export async function POST(request: NextRequest) {
       customer: customerId,
       mode: "subscription",
       line_items: [{ price: getPriceId(plan), quantity: 1 }],
-      metadata: { organizationId: ctx.organizationId },
+      metadata: { organizationId: org.id },
       success_url: `${baseUrl}/dashboard?billing=success`,
       cancel_url:  `${baseUrl}/pricing?billing=cancelled`,
     });
