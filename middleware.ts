@@ -171,13 +171,17 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   const refreshToken = request.cookies.get(STACK_REFRESH_COOKIE)?.value;
   const accessCookie = request.cookies.get("stack-access")?.value;
-  const isLoggedIn = !!(refreshToken || accessCookie);
 
   // Redirect logged-in users away from landing/auth pages — makes them static (fast LCP)
-  if (pathname === "/" && isLoggedIn) {
+  // NOTE: Only redirect if we have BOTH refresh + access tokens to avoid loop when
+  // Stack Auth session is invalid (cookie exists but getUser() returns null).
+  // A single cookie (e.g. stale refresh token) is not enough to confirm a valid session.
+  const hasValidSession = !!(refreshToken && accessCookie);
+
+  if (pathname === "/" && hasValidSession) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
-  if ((pathname === "/sign-in" || pathname === "/sign-up") && isLoggedIn) {
+  if ((pathname === "/sign-in" || pathname === "/sign-up") && hasValidSession) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 

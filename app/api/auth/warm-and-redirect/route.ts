@@ -12,10 +12,27 @@ import type { OrgContext } from "@/lib/org";
 export async function GET(request: NextRequest) {
   const origin = request.nextUrl.origin;
 
+  // Loop guard: track redirect attempts via a query param.
+  // If we've already been redirected here once and still have no user, bail to sign-in
+  // with a flag that prevents middleware from bouncing back to dashboard.
+  const attempt = parseInt(request.nextUrl.searchParams.get("_attempt") ?? "0", 10);
+
   try {
     const user = await stackServerApp.getUser();
     if (!user) {
-      return NextResponse.redirect(`${origin}/sign-in`);
+      if (attempt >= 1) {
+        // Second attempt with no user — clear cookies and go to sign-in to break the loop
+        const signInUrl = new URL(`${origin}/sign-in`);
+        const response = NextResponse.redirect(signInUrl);
+        // Clear stale Stack Auth cookies so middleware won't redirect back to dashboard
+        const refreshCookieName = `stack-refresh-${process.env.NEXT_PUBLIC_STACK_PROJECT_ID ?? ""}`;
+        response.cookies.delete(refreshCookieName);
+        response.cookies.delete("stack-access");
+        return response;
+      }
+      const retryUrl = new URL(`${origin}/api/auth/warm-and-redirect`);
+      retryUrl.searchParams.set("_attempt", "1");
+      return NextResponse.redirect(retryUrl);
     }
 
     // Check if user has a member record
@@ -52,6 +69,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.redirect(`${origin}/dashboard`);
   } catch {
-    return NextResponse.redirect(`${origin}/dashboard`);
+    // On unexpected error, go to sign-in (not dashboard) to avoid a redirect loop
+    // where dashboard → getOrgContext() fails → sign-in → warm-and-redirect → dashboard → ...
+    return NextResponse.redirect(`${origin}/sign-in`);
   }
 }
