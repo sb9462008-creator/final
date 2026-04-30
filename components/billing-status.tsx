@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { CreditCard, AlertTriangle, CheckCircle, ArrowUpRight, ExternalLink } from "lucide-react";
+import { CreditCard, AlertTriangle, CheckCircle, ArrowUpRight } from "lucide-react";
 import type { Plan } from "@/lib/billing";
+import ManageBillingButton from "@/components/manage-billing-button";
 
 interface BillingStatusProps {
   plan: Plan;
@@ -158,26 +159,5 @@ export default function BillingStatus({
         </div>
       )}
     </div>
-  );
-}
-
-// Client component for the portal button (needs onClick)
-function ManageBillingButton({ isPastDue }: { isPastDue: boolean }) {
-  return (
-    <form action="/api/stripe/portal" method="POST">
-      <button
-        type="submit"
-        style={{
-          width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-          padding: "9px 0", borderRadius: "var(--r-sm)",
-          background: isPastDue ? "var(--red)" : "transparent",
-          border: isPastDue ? "none" : "1px solid var(--border-normal)",
-          color: isPastDue ? "#fff" : "var(--text-2)",
-          fontSize: 12, fontWeight: isPastDue ? 700 : 500, cursor: "pointer",
-        }}
-      >
-        {isPastDue ? "Fix payment" : "Manage billing"} <ExternalLink size={11} />
-      </button>
-    </form>
   );
 }

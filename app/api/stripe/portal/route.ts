@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOrgContext } from "@/lib/org";
 import { prisma } from "@/lib/prisma";
-import { getStripe } from "@/lib/billing";
+import { getStripe, isStripePortalEnabled } from "@/lib/billing";
 import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
   if (limited) return limited;
 
   // Stripe not configured
-  if (!process.env.STRIPE_SECRET_KEY) {
+  if (!isStripePortalEnabled()) {
     return NextResponse.json(
       { error: "Billing is not yet available. Please contact us to manage your subscription." },
       { status: 503 }

@@ -7,14 +7,17 @@ import type Stripe from "stripe";
 // Next.js: disable body parsing so we can verify the raw Stripe signature
 export const dynamic = "force-dynamic";
 
-async function invalidateOrgMemberCaches(organizationId: string) {
+async function invalidateOrgCaches(organizationId: string) {
   try {
     const members = await prisma.member.findMany({
       where: { organizationId },
       select: { userId: true },
     });
-    const keys = members.map(m => `org:${m.userId}:context`);
-    if (keys.length > 0) await invalidateCache(keys);
+    const keys = [
+      `org:${organizationId}:settings`,
+      ...members.map((member) => `user:${member.userId}:orgContext`),
+    ];
+    await invalidateCache(keys);
   } catch (err) {
     console.error("[stripe/webhook] cache invalidation failed:", err);
   }
@@ -45,7 +48,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     },
   });
 
-  await invalidateOrgMemberCaches(organizationId);
+  await invalidateOrgCaches(organizationId);
 }
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
@@ -70,7 +73,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     },
   });
 
-  await invalidateOrgMemberCaches(org.id);
+  await invalidateOrgCaches(org.id);
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
@@ -90,7 +93,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
     },
   });
 
-  await invalidateOrgMemberCaches(org.id);
+  await invalidateOrgCaches(org.id);
 }
 
 async function handlePaymentFailed(invoice: Stripe.Invoice) {
@@ -111,6 +114,8 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
     where: { id: org.id },
     data: { stripeSubscriptionStatus: "past_due" },
   });
+
+  await invalidateOrgCaches(org.id);
 }
 
 async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
@@ -130,6 +135,8 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
     where: { id: org.id },
     data: { stripeSubscriptionStatus: "active" },
   });
+
+  await invalidateOrgCaches(org.id);
 }
 
 export async function POST(request: Request) {

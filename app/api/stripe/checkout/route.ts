@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stackServerApp } from "@/stack/server";
 import { prisma } from "@/lib/prisma";
-import { getStripe, getPriceId } from "@/lib/billing";
+import { getStripe, getPriceId, isStripeCheckoutEnabled } from "@/lib/billing";
 import { rateLimit } from "@/lib/rate-limit";
 import { z } from "zod";
 
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   if (limited) return limited;
 
   // Stripe not configured — return informative error
-  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_PRO_PRICE_ID) {
+  if (!isStripeCheckoutEnabled()) {
     return NextResponse.json(
       { error: "Billing is not yet available. Please contact us to upgrade your plan." },
       { status: 503 }

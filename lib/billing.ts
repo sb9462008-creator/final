@@ -93,6 +93,16 @@ export function getStripe(): Stripe {
   return _stripe;
 }
 
+export function isStripePortalEnabled(): boolean {
+  return process.env.STRIPE_ENABLED !== "false" && !!process.env.STRIPE_SECRET_KEY;
+}
+
+export function isStripeCheckoutEnabled(): boolean {
+  return isStripePortalEnabled()
+    && !!process.env.STRIPE_PRO_PRICE_ID
+    && !!process.env.STRIPE_ENTERPRISE_PRICE_ID;
+}
+
 /**
  * Maps a Plan to the corresponding Stripe price ID from env vars.
  * Throws if the price ID env var is missing.

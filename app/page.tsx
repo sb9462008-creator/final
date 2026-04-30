@@ -3,7 +3,7 @@ import Logo from "@/components/logo";
 import CssBg from "@/components/css-bg";
 import { ArrowRight, Package, BarChart3, Shield, Zap, Users, Lock, ChevronRight, Bell, ClipboardList, Trophy, Globe } from "lucide-react";
 import { CheckoutButton, ManageButton } from "@/components/pricing-buttons";
-import type { Plan } from "@/lib/billing";
+import { isStripeCheckoutEnabled, isStripePortalEnabled, type Plan } from "@/lib/billing";
 
 // Try to get org context — unauthenticated visitors will throw
 async function getAuthContext(): Promise<{ plan: Plan; role: string } | null> {
@@ -32,7 +32,8 @@ export default async function Home() {
   const auth = await getAuthContext();
   const isManager = auth?.role === "MANAGER" || auth?.role === "SUPER_ADMIN";
   const currentPlan = auth?.plan ?? null;
-  const stripeEnabled = process.env.STRIPE_ENABLED !== "false" && !!process.env.STRIPE_SECRET_KEY;
+  const stripeCheckoutEnabled = isStripeCheckoutEnabled();
+  const stripePortalEnabled = isStripePortalEnabled();
 
   const features = [
     { icon: Package,       color: "#C8F000", bg: "rgba(200,240,0,0.08)",   border: "rgba(200,240,0,0.15)",   title: "Smart Inventory",     desc: "Track every item with photos, SKUs, and categories. Adjust stock in one click and organize everything into folders." },
@@ -168,12 +169,12 @@ export default async function Home() {
               } else if (isManager && isUpgrade) {
                 // Authenticated manager — checkout button
                 ctaContent = (
-                  <CheckoutButton plan={plan.planKey as "PRO" | "ENTERPRISE"} accent={plan.accent} stripeEnabled={stripeEnabled} />
+                  <CheckoutButton plan={plan.planKey as "PRO" | "ENTERPRISE"} accent={plan.accent} stripeEnabled={stripeCheckoutEnabled} />
                 );
               } else if (isManager && isCurrent && currentPlan !== "STARTER") {
                 // Manage billing
                 ctaContent = (
-                  <ManageButton accent={plan.accent} stripeEnabled={stripeEnabled} />
+                  <ManageButton accent={plan.accent} stripeEnabled={stripePortalEnabled} />
                 );
               } else {
                 // Non-manager authenticated
