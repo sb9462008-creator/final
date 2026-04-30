@@ -94,11 +94,11 @@ export function getStripe(): Stripe {
 }
 
 export function isStripePortalEnabled(): boolean {
-  return process.env.STRIPE_ENABLED !== "false" && !!process.env.STRIPE_SECRET_KEY;
+  return !!process.env.STRIPE_SECRET_KEY;
 }
 
 export function isStripeCheckoutEnabled(): boolean {
-  return isStripePortalEnabled()
+  return !!process.env.STRIPE_SECRET_KEY
     && !!process.env.STRIPE_PRO_PRICE_ID
     && !!process.env.STRIPE_ENTERPRISE_PRICE_ID;
 }
